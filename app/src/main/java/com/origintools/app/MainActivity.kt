@@ -1,10 +1,13 @@
 package com.origintools.app
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -40,7 +43,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Puzzle
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -79,12 +82,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.origintools.app.service.IRemoteCommand
+import com.origintools.app.service.ShellUserService
 import com.origintools.app.ui.theme.OriginTheme
-import dev.chrisbanes.haze.HazeInput
-import dev.chrisbanes.haze.HazeMaterials
-import dev.chrisbanes.haze.hazeBlur
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import rikka.shizuku.Shizuku
 import java.io.File
 
@@ -93,6 +93,29 @@ private const val FINGERPRINT_KEY = "fingerprint_icon_style_resource_a"
 
 class MainActivity : ComponentActivity() {
     private var shizukuGranted by mutableStateOf(false)
+    private var remoteCommand: IRemoteCommand? = null
+    @Volatile private var pendingCommand: Array<String>? = null
+
+    private val userServiceArgs by lazy {
+        Shizuku.UserServiceArgs(ComponentName(packageName, ShellUserService::class.java.name))
+            .daemon(false)
+            .processNameSuffix("commands")
+            .debuggable(BuildConfig.DEBUG)
+            .version(1)
+    }
+
+    private val userServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+            remoteCommand = IRemoteCommand.Stub.asInterface(service)
+            val command = pendingCommand
+            pendingCommand = null
+            if (command != null) runRemoteCommand(command)
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            remoteCommand = null
+        }
+    }
 
     private val binderListener = Shizuku.OnBinderReceivedListener { refreshShizukuState() }
     private val permissionListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
@@ -133,6 +156,7 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         Shizuku.removeBinderReceivedListener(binderListener)
         Shizuku.removeRequestPermissionResultListener(permissionListener)
+        runCatching { Shizuku.unbindUserService(userServiceArgs, userServiceConnection, true) }
         super.onDestroy()
     }
 
@@ -172,14 +196,12 @@ class MainActivity : ComponentActivity() {
                 } else {
                     arrayOf("settings", "put", "system", FINGERPRINT_KEY, value)
                 }
-                val process = Shizuku.newProcess(command, null, null)
-                val exitCode = process.waitFor()
-                runOnUiThread {
-                    Toast.makeText(
-                        this,
-                        if (exitCode == 0) "Настройка применена" else "Не удалось изменить системную настройку",
-                        Toast.LENGTH_LONG
-                    ).show()
+                val service = remoteCommand
+                if (service != null) {
+                    runRemoteCommand(command)
+                } else {
+                    pendingCommand = command
+                    Shizuku.bindUserService(userServiceArgs, userServiceConnection)
                 }
             } catch (error: Throwable) {
                 runOnUiThread {
@@ -188,11 +210,24 @@ class MainActivity : ComponentActivity() {
             }
         }.start()
     }
+
+    private fun runRemoteCommand(command: Array<String>) {
+        Thread {
+            val exitCode = runCatching { remoteCommand?.execute(command) ?: -1 }.getOrDefault(-1)
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    if (exitCode == 0) "Настройка применена" else "Не удалось изменить системную настройку",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }.start()
+    }
 }
 
 private enum class Tab(val title: String, val icon: ImageVector) {
     HOME("Главная", Icons.Filled.Home),
-    MODS("Модификации", Icons.Filled.Puzzle),
+    MODS("Модификации", Icons.Filled.Extension),
     SETTINGS("Настройки", Icons.Filled.Settings),
     ABOUT("Информация", Icons.Filled.Info)
 }
@@ -204,16 +239,12 @@ private fun OriginApp(
     onWriteFingerprintSetting: (String?) -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(Tab.HOME) }
-    val hazeState = rememberHazeState()
-
     Scaffold(
         containerColor = Color(0xFF090A0B),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             NavigationBar(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .hazeBlur(input = HazeInput.Backdrop(hazeState), style = HazeMaterials.thin()),
+                modifier = Modifier.fillMaxWidth(),
                 containerColor = Color(0xB81B1D1F),
                 contentColor = Color.White,
                 tonalElevation = 0.dp,
@@ -234,7 +265,6 @@ private fun OriginApp(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .hazeSource(hazeState)
                 .padding(padding)
         ) {
             AnimatedContent(
