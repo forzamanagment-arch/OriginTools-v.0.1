@@ -603,7 +603,7 @@ private fun ModsScreen(
                         shape = RoundedCornerShape(14.dp)
                     )
                     Button(
-                        onClick = { onWriteSetting(iconValue) },
+                        onClick = { removeIcon = false; onWriteSetting(iconValue) },
                         enabled = shizukuGranted && iconValue.isNotBlank(),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp)
@@ -719,7 +719,9 @@ private fun GlassNavigationBar(
             .hazeEffect(
                 state = hazeState,
                 style = HazeMaterials.thin(containerColor = Color(0xCC17191C))
-            )
+            ) {
+                blurRadius = 28.dp
+            }
             .background(Color(0x9917191C), shape)
             .border(1.dp, Color.White.copy(alpha = 0.19f), shape)
     ) {
