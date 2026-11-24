@@ -1,0 +1,82 @@
+name: Build OriginTools APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Download Vivo Sans fonts from Fonts release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, urllib.request
+          api = "https://api.github.com/repos/forzamanagment-arch/OriginTools-v.0.1/releases/tags/Fonts"
+          headers = {"Accept": "application/vnd.github+json", "User-Agent": "OriginTools-CI"}
+          token = os.environ.get("GITHUB_TOKEN")
+          if token:
+              headers["Authorization"] = "Bearer " + token
+          try:
+              req = urllib.request.Request(api, headers=headers)
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  release = json.load(response)
+              assets = release.get("assets", [])
+          except Exception as error:
+              print("Fonts release unavailable; using system sans-serif fallback:", error)
+              assets = []
+
+          target = "app/src/main/res/font"
+          os.makedirs(target, exist_ok=True)
+          variants = {
+              "regular": r"regular|400",
+              "medium": r"medium|500",
+              "bold": r"bold|700",
+              "black": r"black|heavy|900"
+          }
+          for weight, pattern in variants.items():
+              match = next((a for a in assets
+                            if re.search(pattern, a.get("name", ""), re.I)
+                            and a.get("name", "").lower().endswith((".ttf", ".otf"))), None)
+              if not match:
+                  print("No matching Vivo Sans", weight, "asset; runtime fallback will be used.")
+                  continue
+              filename = "vivo_sans_" + weight + (".otf" if match["name"].lower().endswith(".otf") else ".ttf")
+              request = urllib.request.Request(match["browser_download_url"], headers={"User-Agent": "OriginTools-CI"})
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  data = response.read()
+              with open(os.path.join(target, filename), "wb") as output:
+                  output.write(data)
+              print("Installed", filename, "from release asset", match["name"])
+          PY
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OriginTools-0.1.0-BETA-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
