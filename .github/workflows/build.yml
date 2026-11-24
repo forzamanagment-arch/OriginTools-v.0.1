@@ -31,20 +31,32 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 - <<'PY'
-          import json, os, re, urllib.request
+          import io, json, os, re, urllib.request, zipfile
           api = "https://api.github.com/repos/forzamanagment-arch/OriginTools-v.0.1/releases/tags/Fonts"
           headers = {"Accept": "application/vnd.github+json", "User-Agent": "OriginTools-CI"}
           token = os.environ.get("GITHUB_TOKEN")
           if token:
               headers["Authorization"] = "Bearer " + token
+
+          candidates = []
           try:
               req = urllib.request.Request(api, headers=headers)
               with urllib.request.urlopen(req, timeout=30) as response:
                   release = json.load(response)
-              assets = release.get("assets", [])
+              for asset in release.get("assets", []):
+                  name = asset.get("name", "")
+                  request = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "OriginTools-CI"})
+                  with urllib.request.urlopen(request, timeout=60) as response:
+                      payload = response.read()
+                  if name.lower().endswith(".zip"):
+                      with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                          for member in archive.infolist():
+                              if not member.is_dir() and member.filename.lower().endswith((".ttf", ".otf")):
+                                  candidates.append((os.path.basename(member.filename), archive.read(member)))
+                  elif name.lower().endswith((".ttf", ".otf")):
+                      candidates.append((name, payload))
           except Exception as error:
               print("Fonts release unavailable; using system sans-serif fallback:", error)
-              assets = []
 
           target = "app/src/main/res/font"
           os.makedirs(target, exist_ok=True)
@@ -55,21 +67,15 @@ jobs:
               "black": r"black|heavy|900"
           }
           for weight, pattern in variants.items():
-              match = next((a for a in assets
-                            if re.search(pattern, a.get("name", ""), re.I)
-                            and a.get("name", "").lower().endswith((".ttf", ".otf"))), None)
+              match = next((item for item in candidates if re.search(pattern, item[0], re.I)), None)
               if not match:
-                  print("No matching Vivo Sans", weight, "asset; runtime fallback will be used.")
+                  print("No matching Vivo Sans", weight, "font; runtime fallback will be used.")
                   continue
-              filename = "vivo_sans_" + weight + (".otf" if match["name"].lower().endswith(".otf") else ".ttf")
-              request = urllib.request.Request(match["browser_download_url"], headers={"User-Agent": "OriginTools-CI"})
-              with urllib.request.urlopen(request, timeout=60) as response:
-                  data = response.read()
+              filename = "vivo_sans_" + weight + (".otf" if match[0].lower().endswith(".otf") else ".ttf")
               with open(os.path.join(target, filename), "wb") as output:
-                  output.write(data)
-              print("Installed", filename, "from release asset", match["name"])
+                  output.write(match[1])
+              print("Installed", filename, "from", match[0])
           PY
-
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
