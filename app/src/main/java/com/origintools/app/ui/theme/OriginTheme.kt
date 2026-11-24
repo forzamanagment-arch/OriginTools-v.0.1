@@ -9,6 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -31,9 +32,27 @@ private val OriginColors = darkColorScheme(
 fun OriginTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val vivoFamily = remember(context) {
-        val regularId = context.resources.getIdentifier("vivo_sans_regular", "font", context.packageName)
-        val regular = if (regularId != 0) ResourcesCompat.getFont(context, regularId) else null
-        regular?.let { FontFamily(it) } ?: FontFamily.SansSerif
+        fun loadTypeface(resourceName: String): Typeface? {
+            val id = context.resources.getIdentifier(resourceName, "font", context.packageName)
+            return if (id != 0) ResourcesCompat.getFont(context, id) else null
+        }
+
+        val regular = loadTypeface("vivo_sans_regular")
+        val medium = loadTypeface("vivo_sans_medium")
+        val bold = loadTypeface("vivo_sans_bold")
+        val black = loadTypeface("vivo_sans_black")
+
+        if (regular == null) {
+            FontFamily.SansSerif
+        } else {
+            val fonts = buildList {
+                add(Font(regular, FontWeight.Normal))
+                medium?.let { add(Font(it, FontWeight.Medium)) }
+                bold?.let { add(Font(it, FontWeight.Bold)) }
+                black?.let { add(Font(it, FontWeight.Black)) }
+            }
+            FontFamily(fonts)
+        }
     }
     val typography = remember(vivoFamily) {
         Typography(
