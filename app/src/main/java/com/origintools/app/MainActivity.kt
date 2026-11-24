@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -81,9 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.view.WindowCompat
-import androidx.compose.ui.unit.round
 import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.pager.PagerState
@@ -97,7 +94,6 @@ import com.origintools.app.service.IRemoteCommand
 import com.origintools.app.service.ShellUserService
 import com.origintools.app.ui.theme.OriginTheme
 import rikka.shizuku.Shizuku
-import java.io.File
 import java.util.ArrayDeque
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
