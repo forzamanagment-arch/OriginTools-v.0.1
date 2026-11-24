@@ -85,7 +85,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.rememberCoroutineScope
-import dev.chrisbanes.haze.ExperimentalHazeApi
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -286,7 +286,7 @@ private enum class AppTab(val title: String, val icon: ImageVector) {
     ABOUT("Информация", Icons.Filled.Info)
 }
 
-@OptIn(ExperimentalHazeApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun OriginApp(
     shizukuGranted: Boolean,
