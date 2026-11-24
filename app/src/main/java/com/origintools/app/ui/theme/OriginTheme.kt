@@ -1,6 +1,5 @@
 package com.origintools.app.ui.theme
 
-import android.graphics.Typeface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -13,7 +12,6 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.core.content.res.ResourcesCompat
 
 private val OriginColors = darkColorScheme(
     primary = Color(0xFF38D45A),
@@ -32,24 +30,20 @@ private val OriginColors = darkColorScheme(
 fun OriginTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
     val vivoFamily = remember(context) {
-        fun loadTypeface(resourceName: String): Typeface? {
-            val id = context.resources.getIdentifier(resourceName, "font", context.packageName)
-            return if (id != 0) ResourcesCompat.getFont(context, id) else null
-        }
+        fun fontId(name: String) = context.resources.getIdentifier(name, "font", context.packageName)
+        val regular = fontId("vivo_sans_regular")
+        val medium = fontId("vivo_sans_medium")
+        val bold = fontId("vivo_sans_bold")
+        val black = fontId("vivo_sans_black")
 
-        val regular = loadTypeface("vivo_sans_regular")
-        val medium = loadTypeface("vivo_sans_medium")
-        val bold = loadTypeface("vivo_sans_bold")
-        val black = loadTypeface("vivo_sans_black")
-
-        if (regular == null) {
+        if (regular == 0) {
             FontFamily.SansSerif
         } else {
             val fonts = buildList {
                 add(Font(regular, FontWeight.Normal))
-                medium?.let { add(Font(it, FontWeight.Medium)) }
-                bold?.let { add(Font(it, FontWeight.Bold)) }
-                black?.let { add(Font(it, FontWeight.Black)) }
+                if (medium != 0) add(Font(medium, FontWeight.Medium))
+                if (bold != 0) add(Font(bold, FontWeight.Bold))
+                if (black != 0) add(Font(black, FontWeight.Black))
             }
             FontFamily(fonts)
         }
