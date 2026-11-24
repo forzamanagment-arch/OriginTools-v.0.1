@@ -701,7 +701,7 @@ private fun LinkRow(icon: ImageVector, title: String, subtitle: String, onClick:
     }
 }
 
-@OptIn(ExperimentalHazeApi::class)
+@OptIn(ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun GlassNavigationBar(
     pagerState: PagerState,
